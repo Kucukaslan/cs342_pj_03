@@ -4,7 +4,6 @@ libdma.a: dma.c
 	ar rcs libdma.a dma.o
 app: app.c
 	gcc -Wall -g -o app app.c -L. -ldma
-
 clean:
 	rm -fr *~ libdma.a dma.o app.o app
 tar:
@@ -12,10 +11,9 @@ tar:
 
 run: all
 	./app
+	make clean 
 
-val: a
-	valgrind --leak-check=full --show-leak-kinds=all --leak-resolution=high --track-origins=yes --vgdb=yes ./app
-hel: a
+val: all
+	valgrind -s --leak-check=full --show-leak-kinds=all --leak-resolution=high --track-origins=yes --vgdb=yes ./app
+hel: all
 	valgrind --tool=helgrind ./app
-
-

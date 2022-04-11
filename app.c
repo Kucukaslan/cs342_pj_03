@@ -11,12 +11,17 @@ int main(int argc, char **argv)
     void *p4;
     int ret;
 
-    ret = dma_init(20); // create a segment of 1 MB
+    ret = dma_init(20); 
     if (ret != 0)
     {
         printf("something was wrong\n");
         exit(13);
     }
+    //printf("before calling dma_print_bitmap\n");
+    dma_print_bitmap();
+    exit(0);
+
+    
     p1 = dma_alloc(100); // allocate space for 100 bytes
     p2 = dma_alloc(1024);
     p3 = dma_alloc(64); // always check the return value
