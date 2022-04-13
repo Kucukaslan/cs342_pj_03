@@ -359,28 +359,41 @@ unsigned long int word_manipulator(int is_first, int start, int size)
 {
     unsigned long int ALL_ONE = FFL << 7* DMA_BIT_PER_BYTE | FFL << 6* DMA_BIT_PER_BYTE | FFL << 5* DMA_BIT_PER_BYTE | FFL << 4* DMA_BIT_PER_BYTE | FFL << 3* DMA_BIT_PER_BYTE | FFL << 2* DMA_BIT_PER_BYTE | FFL << 1* DMA_BIT_PER_BYTE | FFL;
     unsigned long int result = ALL_ONE;
-    printf("result: %lu\n", result);
-    if (is_first)
-    {
-        result = (1 << (62 - start)) | ALL_ONE >> size | ALL_ONE << (64 - start);
-        printf("result: %lu\n", result);
+    unsigned long int ALIGN_SIZE_ZEROS;
+    unsigned long int ALIGN_START_POINT;
+    //printf("result: %lu\n", result);
 
+    ALIGN_SIZE_ZEROS = ALL_ONE >> (start + size);
+    if(start + size == 64) {
+        ALIGN_SIZE_ZEROS = 0UL;
+    }   
+
+    ALIGN_START_POINT = ALL_ONE << (64 - start);
+    if( start == 0) {
+            ALIGN_START_POINT = 0UL;
+    }
+
+
+    if (is_first)
+    {      
+        result = (1l << (62 - start)) | ALIGN_SIZE_ZEROS| ALIGN_START_POINT;
+        //printf("result: %lu\n", result);
     }
     else
-    {
-        result = ALL_ONE >> (start + size) | ALL_ONE << (64 - start);
-        printf("result: %lu\n", result);
+    {        
+        result = ALIGN_SIZE_ZEROS | ALIGN_START_POINT;
+        //printf("result: %lu, ALL_ONE >> (start + size): %lu,  ALL_ONE << (64 - start): %lu\n", result, ALL_ONE >> (start + size), ALL_ONE << (64 - start));
     }
     char tmp[64];
     word_to_binary(result, tmp);
-    printf("PRETEST: %s\n", tmp);
+    //printf("PRETEST: %s\n", tmp);
     return result;
 }
 
 void word_to_binary(unsigned long int num, char *binary)
 {
     // char binary[8] = "12345678";
-    // printf("binary: %s\n", binary);
+    //printf("binary: %s\n", binary);
 
     char ch = 'a';
     int length = DMA_WORD_LENGTH_BYTE * DMA_BIT_PER_BYTE;
@@ -394,6 +407,8 @@ void word_to_binary(unsigned long int num, char *binary)
 
         binary[length -1 - j] = ch;
         // num>>=1;
-        // printf("binary: %s\n", binary);
+        //printf("binary: %s\n", binary);
     }
+    //printf("result: %lu, bin: %s\n", num, binary);
+
 }

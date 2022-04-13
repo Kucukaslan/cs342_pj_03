@@ -9,7 +9,7 @@ void test_word_to_binary();
 int main(int argc, char **argv)
 {
 
-    // test_word_to_binary();
+    //test_word_to_binary();
     test_bit_man();
     printf("something\n");
 
@@ -54,23 +54,32 @@ void test_bit_man() {
     int size = 8;
     int start = 0;
     
-    word_to_binary(word_manipulator(is_first,size,start), arr);
+    word_to_binary(word_manipulator(is_first,start,size), arr);
     // there seems to be a weird behaviour to print
     // 67 chars although the 
-    printf("is_first: %d, size: %d, start: %d, output: %64.s \n", is_first,size,start, arr);
+    printf("is_first: %d, start: %d, size: %d, output: %s \n\n", is_first,start,size, arr);
     is_first = 1; size = 6; start = 0;     
-    word_to_binary(word_manipulator(is_first,size,start), arr);
-    printf("is_first: %d, size: %d, start: %d, output: %64.s \n", is_first,size,start, arr);
+    word_to_binary(word_manipulator(is_first,start,size), arr);
+    printf("is_first: %d, start: %d, size: %d, output: %s \n\n", is_first,start,size, arr);
 
     is_first = 1; size = 8; start = 4;     
-    word_to_binary(word_manipulator(is_first,size,start), arr);
-    printf("is_first: %d, size: %d, start: %d, output: %64.s \n", is_first,size,start, arr);
+    word_to_binary(word_manipulator(is_first,start,size), arr);
+    printf("is_first: %d, start: %d, size: %d, output: %s \n\n", is_first,start,size, arr);
     // printf("test bit man XILAS?");
 }
 
 void test_word_to_binary() {
     int num = 16;
     char arr[8];
+    int DMA_BIT_PER_BYTE = 8;
+    unsigned long int FFL = 255UL;
+    unsigned long int ALL_ONE = FFL << 7* DMA_BIT_PER_BYTE | FFL << 6* DMA_BIT_PER_BYTE | FFL << 5* DMA_BIT_PER_BYTE | FFL << 4* DMA_BIT_PER_BYTE | FFL << 3* DMA_BIT_PER_BYTE | FFL << 2* DMA_BIT_PER_BYTE | FFL << 1* DMA_BIT_PER_BYTE | FFL;
+
+    word_to_binary(ALL_ONE << 32 << 32, arr);
+    printf("ALL_ONE << (64): %lu : %s\n",ALL_ONE <<  32 << 32, arr);
+
+    word_to_binary(ALL_ONE >> 32 >> 32, arr);
+    printf("ALL_ONE >> (64): %lu : %s\n",ALL_ONE >> 32 >> 32, arr);
 
     word_to_binary(255 << 3, arr);
     printf("FF << (3): %ld : %s\n",255l << 3, arr);
