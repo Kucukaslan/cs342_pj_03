@@ -364,12 +364,12 @@ unsigned long int word_manipulator(int is_first, int start, int size)
     //printf("result: %lu\n", result);
 
     ALIGN_SIZE_ZEROS = ALL_ONE >> (start + size);
-    if(start + size == 64) {
+    if(start + size >= 64) {
         ALIGN_SIZE_ZEROS = 0UL;
     }   
 
     ALIGN_START_POINT = ALL_ONE << (64 - start);
-    if( start == 0) {
+    if( start <= 0) {
             ALIGN_START_POINT = 0UL;
     }
 

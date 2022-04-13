@@ -66,6 +66,16 @@ void test_bit_man() {
     word_to_binary(word_manipulator(is_first,start,size), arr);
     printf("is_first: %d, start: %d, size: %d, output: %s \n\n", is_first,start,size, arr);
     // printf("test bit man XILAS?");
+    
+    is_first = 1; size = 60; start = 2;     
+    word_to_binary(word_manipulator(is_first,start,size), arr);
+    printf("is_first: %d, start: %d, size: %d, output: %s \n\n", is_first,start,size, arr);
+    // printf("test bit man XILAS?");
+    
+    is_first = 1; size = 28; start = 32;     
+    word_to_binary(word_manipulator(is_first,start,size), arr);
+    printf("is_first: %d, start: %d, size: %d, output: %s \n\n", is_first,start,size, arr);
+    // printf("test bit man XILAS?");
 }
 
 void test_word_to_binary() {
