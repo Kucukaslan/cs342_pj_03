@@ -18,10 +18,19 @@
 
 #include "dma.h"
 
+#define DMA_WORD_LENGTH_BYTE 8
+#define DMA_BIT_PER_BYTE 8
+#define FF 255
+#define FFL 255l
+#define ZERO 0
 
-int dbg = 0; // handmade debugger, put print statements in if statement and print only if dbg is 1
+//#define LEFT_SHIFT = 1 << 6;
+int dbg = 1; // handmade debugger, put print statements in if statement and print only if dbg is 1
 unsigned long *themap;
-int size;
+int size_in_bits;
+int bitmap_in_bits;
+int reserved_area_size_in_bits = 256 * DMA_BIT_PER_BYTE;
+int internal_fragmentation_amount = 0;
 pthread_mutex_t themap_mutex; // = PTHREAD_MUTEX_INITIALIZER;
 
 /**
@@ -42,14 +51,14 @@ pthread_mutex_t themap_mutex; // = PTHREAD_MUTEX_INITIALIZER;
  * You can assume that dma_init() will be called  by the main thread
  * in a multi-threaded program, before any other thread is created.
  *
- * @param m The size of the segment will be 2^m bytes.
+ * @param m The size of the segment will be 2^m bytes. The value of m can be between 14 and 22
  * @return int If initialization is successful, the function will return 0.
 Otherwise, it will return -1.
  */
 int dma_init(int m)
 {
     pthread_mutex_init(&themap_mutex, NULL);
-    //if()
+    // if()
     void *p;
 
     // The size  of the segment will be 2^m bytes.
@@ -63,23 +72,26 @@ int dma_init(int m)
      * The right shift is equivalent to division by 2^E2 if E1 is unsigned or it has a nonnegative value;
      * otherwise the result is implementation-defined.
      */
-    size = 1;
+    size_in_bits = 1;
     if (dbg > 0)
     {
-        printf("1. m: %d, size: %d\n", m, size);
+        printf("1. m: %d, size: %d\n", m, size_in_bits);
     }
-    size = size << m; // 1*2^m
+    size_in_bits = size_in_bits << m; // 1*2^m
+
+    // one bit for each WORD
+    bitmap_in_bits = size_in_bits / (DMA_WORD_LENGTH_BYTE * DMA_BIT_PER_BYTE);
     if (dbg > 0)
     {
-        printf("2. m: %d, size: %d\n", m, size);
+        printf("2. m: %d, size: %d, bitmap:%d\n", m, size_in_bits, bitmap_in_bits);
     }
 
-    p = mmap(NULL, (size_t)size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    p = mmap(NULL, (size_t)size_in_bits, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     if (dbg > 0)
     {
         // print start address
         printf("Address of the allocated map %lx\n", (long)p);
-    } 
+    }
 
     if (p == MAP_FAILED)
     {
@@ -91,9 +103,10 @@ int dma_init(int m)
     {
         // print start address
         printf("not failed to allocate map %lx\n", (long)p);
-    } 
-    
-    if ( pthread_mutex_lock(&themap_mutex) !=0 ) {
+    }
+
+    if (pthread_mutex_lock(&themap_mutex) != 0)
+    {
         printf("couldn't get  themap_mutex!\n");
     }
     if (dbg > 0)
@@ -101,10 +114,69 @@ int dma_init(int m)
         printf("got the lock\n");
     }
     themap = p;
-    for(int i = 0; 8*i < size; i++) {
-        //printf("add %p : val %ld\n",themap +i , themap[i] );
-        themap[i] = 255;
-        //printf("add %p : val %ld\n",themap +i , themap[i] );
+    for (int i = 0; DMA_BIT_PER_BYTE * i < size_in_bits; i++)
+    {
+        // printf("add %p : val %lu\n",themap +i , themap[i] );
+        unsigned long t = 255;
+        for (int j = 0; j < 7; j++)
+        {
+            t <<= DMA_BIT_PER_BYTE;
+            t = t | 255;
+        }
+        ((unsigned long *)themap)[i] = t;
+        //printf("add %p : val %lu \n", themap + i, ((unsigned long *)themap)[i]);
+    }
+
+    // allocate first bitmap_in_bits + reserved_area_size_in_bits
+    int bitmap_word_count = bitmap_in_bits / (DMA_WORD_LENGTH_BYTE * DMA_BIT_PER_BYTE);
+
+    // since m>=14 it is guaranteed that 2^8|bitmap_in_bits. (in fact bitmap_word_count will be multiple of 4)
+    // search word by word to find appropriate place
+    int new_value = 0;
+    // set first to digit to 01
+    int i = 0;
+    int word_index = 0;
+    printf("before the while\n");
+
+    while (i < bitmap_word_count)
+    {
+        if (i < 2)
+        {
+            if (i + 8 <= bitmap_word_count)
+            {
+                new_value = (1 << 6); // safely ignore themap[word_index]
+                i = i + 8;
+            }
+            else
+            {
+                // set 01_0...0_1...1
+                new_value = ((1 << (bitmap_word_count - i - 2)) | FF >> (bitmap_word_count - i)) &
+                            themap[word_index]; // the two are for the first 01
+                printf("else new_value: %d, word_index %d, lh: %d, rh: %d\n", new_value, word_index,
+                       1 << (bitmap_word_count - i - 2), FF >> (bitmap_word_count - i));
+
+                i = bitmap_word_count;
+            }
+            printf("i<2 new_value: %d, word_index %d\n", new_value, word_index);
+            themap[word_index] = new_value;
+        }
+        else
+        {
+            if (i + 8 >= bitmap_word_count)
+            {
+                new_value = 0; // safely ignore themap[word_index]
+                i = i + 8;
+            }
+            else
+            {
+                new_value = (FF >> (bitmap_word_count - i)) & themap[word_index]; //
+                i = bitmap_word_count;
+            }
+
+            printf("i>2 new_value: %d, word_index %d\n", new_value, word_index);
+            themap[word_index] = new_value;
+        }
+        word_index = word_index + 1;
     }
     pthread_mutex_unlock(&themap_mutex);
     if (dbg > 0)
@@ -121,7 +193,7 @@ int dma_init(int m)
  * to be allocated. The value of size can be any positive integer value
  * (internally, however, we will allocate space that is a multiple of 16 bytes).
  *
- * @param size The size parameter indicates the size (in bytes) of the requested memory
+ * @param size The size parameter indicates the size (in BYTEs) of the requested memory
  * to be allocated. The value of size can be any positive integer value
  *
  * @return void*
@@ -138,6 +210,7 @@ int dma_init(int m)
  */
 void *dma_alloc(int size)
 {
+
     return NULL;
 }
 
@@ -196,38 +269,40 @@ void dma_print_page(int pno)
  */
 void dma_print_bitmap()
 {
-    if(dbg>0) {    printf("dma_print started: \n\n");}
+    if (dbg > 0)
+    {
+        printf("dma_print started: \n\n");
+    }
     pthread_mutex_lock(&themap_mutex);
-       
-    
-    for(int k = 0; 8*k < size; k++) {
-        //printf("\nadd %p : val %ld  : \n",themap + k, themap[k] );
-        unsigned long num = themap[k];
-        //printf("\nadd %p: val %ld  : \n",themap + k, num );
 
-        for(int j = 7; j >= 0; j--) {
-            //printf(" num: %ld : ", num); 
-            putc( (num>>j & 1) == 1 ? '1':'0', stdout);
-            //num>>=1;
+    for (int k = 0; 8 * k < bitmap_in_bits; k++)
+    {
+        // printf("\nadd %p : val %ld  : \n",themap + k, themap[k] );
+        unsigned long num = ((long *)themap)[k];
+        // printf("\nadd %p: val %ld  : \n",themap + k, num );
+
+        for (int j = 7; j >= 0; j--)
+        {
+            // printf(" num: %ld : ", num);
+            putc((num >> j & 1) == 1 ? '1' : '0', stdout);
+            // num>>=1;
         }
-        if( k % 8 == 7 ) {
-                putc('\n', stdout);
+        if (k % 8 == 7)
+        {
+            putc('\n', stdout);
         }
-        else 
+        else
         {
             putc(' ', stdout);
         }
-
     }
 
-    
     putc('\n', stdout);
 
-    //dma_print_bitmap_helper(my, 1);
-    
+    // dma_print_bitmap_helper(my, 1);
+
     pthread_mutex_unlock(&themap_mutex);
 }
-
 
 /**
  * @brief This function will print information
@@ -278,4 +353,47 @@ void dma_print_blocks()
 int dma_give_intfrag()
 {
     exit(47);
+}
+
+unsigned long int word_manipulator(int is_first, int start, int size)
+{
+    unsigned long int ALL_ONE = FFL << 7* DMA_BIT_PER_BYTE | FFL << 6* DMA_BIT_PER_BYTE | FFL << 5* DMA_BIT_PER_BYTE | FFL << 4* DMA_BIT_PER_BYTE | FFL << 3* DMA_BIT_PER_BYTE | FFL << 2* DMA_BIT_PER_BYTE | FFL << 1* DMA_BIT_PER_BYTE | FFL;
+    unsigned long int result = ALL_ONE;
+    printf("result: %lu\n", result);
+    if (is_first)
+    {
+        result = (1 << (62 - start)) | ALL_ONE >> size | ALL_ONE << (64 - start);
+        printf("result: %lu\n", result);
+
+    }
+    else
+    {
+        result = ALL_ONE >> (start + size) | ALL_ONE << (64 - start);
+        printf("result: %lu\n", result);
+    }
+    char tmp[64];
+    word_to_binary(result, tmp);
+    printf("PRETEST: %s\n", tmp);
+    return result;
+}
+
+void word_to_binary(unsigned long int num, char *binary)
+{
+    // char binary[8] = "12345678";
+    // printf("binary: %s\n", binary);
+
+    char ch = 'a';
+    int length = DMA_WORD_LENGTH_BYTE * DMA_BIT_PER_BYTE;
+    for (int j = length -1 ; j >= 0; j--)
+    {
+        // printf(" num: %d \n", num);
+        ch = (num >> j & 1) == 1 ? '1' : '0';
+        // printf(" num: %d \n", num);
+
+        // printf("binary: %s, ch: %c\n", binary, ch);
+
+        binary[length -1 - j] = ch;
+        // num>>=1;
+        // printf("binary: %s\n", binary);
+    }
 }
