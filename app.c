@@ -17,13 +17,16 @@ int main(int argc, char **argv)
     void *p2;
     void *p3;
     void *p4;
-    int ret;
+    void *ret;
 
-    ret = dma_init(14);
+    ret = (void *) dma_init(14);
     if (ret != 0) {
         printf("something was wrong\n");
-        exit(20);
+        //exit(20);
     }
+    dma_print_bitmap();
+
+    dma_free(ret);
     //printf("before calling dma_print_bitmap\n");
 
     dma_print_bitmap();

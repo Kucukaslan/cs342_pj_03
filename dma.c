@@ -9,11 +9,13 @@
  *
  */
 
+#include <limits.h>
 #include <pthread.h>
 #include <stdio.h>// to include stdin, stdout and some constants e.g. NULL
 #include <stdlib.h>
 #include <sys/mman.h>// mmap etc.
 #include <unistd.h>
+
 
 #include "dma.h"
 
@@ -55,6 +57,21 @@ pthread_mutex_t themap_mutex;// = PTHREAD_MUTEX_INITIALIZER;
  * @return int If initialization is successful, the function will return 0.
 Otherwise, it will return -1.
  */
+ulong tmIndexOf(ulong i)
+{
+    return i / sizeof(ulong);
+}
+ulong ulIndexOf(ulong i)
+{
+    return i % sizeof(ulong);
+}
+
+ulong ul2bits(ulong w, ulong idx)
+{
+    //left to right
+    ulong s = w >> (62 - idx);
+    return s & 0b11;
+}
 int dma_init(int m)
 {
     pthread_mutex_init(&themap_mutex, NULL);
@@ -96,16 +113,10 @@ int dma_init(int m)
         printf("couldn't get  themap_mutex!\n");
     }
     //  printf("got the lock\n");
-
     themap = p;
     for (int i = 0; DMA_BIT_PER_BYTE * i < size_in_bits; i++) {
         // printf("add %p : val %lu\n",themap +i , themap[i] );
-        unsigned long t = 255;
-        for (int j = 0; j < 7; j++) {
-            t <<= DMA_BIT_PER_BYTE;
-            t = t | 255;
-        }
-        ((unsigned long *) themap)[i] = t;
+        ((unsigned long *) themap)[i] = ULONG_MAX;
         // printf("add %p : val %lu \n", themap + i, ((unsigned long *)themap)[i]);
     }
 
@@ -187,7 +198,7 @@ int dma_init(int m)
 
     // printf("unlocked the lock\n");
 
-    return 0;
+    return themap;
 }
 
 /**
@@ -233,8 +244,36 @@ void *dma_alloc(int size)
  */
 void dma_free(void *p)
 {
-    exit(47);
+    pthread_mutex_lock(&themap_mutex);
+    ulong relptr = ((ulong) themap) - ((ulong) p);
+    ulong offset = 1 << bitmap_in_bits;
+
+    // points to a single bit in bitmap, at most 2**21, ulong to avoid casts
+    for (ulong i = 0; i < (1 << bitmap_in_bits); i += 2) {
+        ulong index = i;//+ (ulong) themap;
+        ulong uli = ulIndexOf(index);
+        ulong tmi = tmIndexOf(index);
+
+        ulong ulword = themap[tmi];
+        ulong newWord = ulword;
+
+        ulong twoBits = ul2bits(ulword, uli);
+        ulong orMask = ((ulong) 0b11) << 62;
+
+        // cell is empty
+        if (twoBits == 0b11) {
+            // fixme update bitmap
+            themap[tmi] = newWord;
+            pthread_mutex_unlock(&themap_mutex);
+            return;
+        }
+        orMask = orMask >> uli;
+        newWord = newWord | orMask;
+        themap[tmi] = newWord;
+    }
+    pthread_mutex_unlock(&themap_mutex);
 }
+
 
 /**
  * @brief . This function will print a page of the segment
