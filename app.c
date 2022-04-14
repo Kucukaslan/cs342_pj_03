@@ -1,4 +1,4 @@
-#include "dma.h"// include the library interface
+#include "dma.h" // include the library interface
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/mman.h>
@@ -8,6 +8,7 @@ void test_bit_man();
 void test_word_to_binary();
 int main(int argc, char **argv)
 {
+
     //test_word_to_binary();
     test_bit_man();
     printf("something\n");
@@ -19,24 +20,38 @@ int main(int argc, char **argv)
     void *p4;
     void *ret;
 
-    ret = dma_init(14);
-    if (ret != 0) {
+    ret = dma_init(17);
+    if (ret != 0)
+    {
         printf("something was wrong\n");
         //exit(20);
     }
+    // printf("before calling dma_print_bitmap\n");
     dma_print_bitmap();
 
     dma_free(ret);
     //printf("before calling dma_print_bitmap\n");
 
     dma_print_bitmap();
+
+    p1 = dma_alloc(100000000); // allocate space for 100 bytes: 14 WORDS
+    printf("\n\np1: %p, p2: %p, p3: %p, p4: %p\n\n", p1, p2, p3, p4);
+    // dma_print_bitmap();
+
+    p2 = dma_alloc(1024); // 128 WORDS
+    printf("\n\np1: %p, p2: %p, p3: %p, p4: %p\n\n", p1, p2, p3, p4);
+    // dma_print_bitmap();
+
+    p3 = dma_alloc(64); // 8 WORDS
+    printf("\n\np1: %p, p2: %p, p3: %p, p4: %p\n\n", p1, p2, p3, p4);
+    // dma_print_bitmap();
+
+    p4 = dma_alloc(220); // 28 WORDS
+    printf("\n\np1: %p, p2: %p, p3: %p, p4: %p\n\n", p1, p2, p3, p4);
+    dma_print_bitmap();
+
     exit(0);
 
-
-    p1 = dma_alloc(100);// allocate space for 100 bytes
-    p2 = dma_alloc(1024);
-    p3 = dma_alloc(64);// always check the return value
-    p4 = dma_alloc(220);
     dma_free(p3);
     p3 = dma_alloc(2048);
     dma_print_blocks();
@@ -48,7 +63,7 @@ int main(int argc, char **argv)
 
 void test_bit_man()
 {
-    //int num = 16;
+    // int num = 16;
     char arr[65];
     arr[64] = '\0';
 
@@ -108,7 +123,6 @@ void test_word_to_binary()
     word_to_binary(255 << 3, arr);
     printf("FF << (3): %ld : %s\n", 255l << 3, arr);
 
-
     word_to_binary(255 << 5, arr);
     printf("FF << (5): %ld : %s\n", 255l << 5, arr);
 
@@ -117,7 +131,6 @@ void test_word_to_binary()
 
     word_to_binary(1 << 5, arr);
     printf("1 << (5): %ld : %s\n", 1l << 5, arr);
-
 
     word_to_binary(1 >> 3, arr);
     printf("1 >> (3): %ld : %s\n", 1l >> 3, arr);
@@ -130,7 +143,6 @@ void test_word_to_binary()
 
     word_to_binary(255 >> 5, arr);
     printf("255 >> (5): %ld : %s\n", 255l >> 5, arr);
-
 
     word_to_binary(num, arr);
     printf("num: %d, bin: %s\n", num, arr);
