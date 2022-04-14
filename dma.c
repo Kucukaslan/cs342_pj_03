@@ -198,7 +198,7 @@ int dma_init(int m)
 
     // printf("unlocked the lock\n");
 
-    return themap;
+    return 0;
 }
 
 /**
@@ -245,31 +245,27 @@ void *dma_alloc(int size)
 void dma_free(void *p)
 {
     pthread_mutex_lock(&themap_mutex);
-    ulong relptr = ((ulong) themap) - ((ulong) p);
-    ulong offset = 1 << bitmap_in_bits;
-
+    ulong relptr = ((ulong) p) - (ulong) themap;
+    ulong uli = ulIndexOf(relptr);
+    ulong tmi = tmIndexOf(relptr);
     // points to a single bit in bitmap, at most 2**21, ulong to avoid casts
-    for (ulong i = 0; i < (1 << bitmap_in_bits); i += 2) {
-        ulong index = i;//+ (ulong) themap;
-        ulong uli = ulIndexOf(index);
-        ulong tmi = tmIndexOf(index);
-
+    for (; tmi < (bitmap_in_bits / 64); ++tmi) {
         ulong ulword = themap[tmi];
         ulong newWord = ulword;
-
-        ulong twoBits = ul2bits(ulword, uli);
-        ulong orMask = ((ulong) 0b11) << 62;
-
-        // cell is empty
-        if (twoBits == 0b11) {
-            // fixme update bitmap
-            themap[tmi] = newWord;
-            pthread_mutex_unlock(&themap_mutex);
-            return;
+        ulong TorMask = ((ulong) 0b11) << 62;
+        for (; uli < 64; uli += 2) {
+            ulong twoBits = ul2bits(ulword, uli);
+            ulong orMask = TorMask >> uli;
+            if (twoBits == 0b11) {
+                themap[tmi] = newWord;
+                pthread_mutex_unlock(&themap_mutex);
+                return;
+            } else {
+                newWord = newWord | orMask;
+                themap[tmi] = newWord;
+            }
         }
-        orMask = orMask >> uli;
-        newWord = newWord | orMask;
-        themap[tmi] = newWord;
+        uli = 0;
     }
     pthread_mutex_unlock(&themap_mutex);
 }

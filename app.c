@@ -19,7 +19,7 @@ int main(int argc, char **argv)
     void *p4;
     void *ret;
 
-    ret = (void *) dma_init(14);
+    ret = dma_init(14);
     if (ret != 0) {
         printf("something was wrong\n");
         //exit(20);
