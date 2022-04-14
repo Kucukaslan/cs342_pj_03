@@ -20,7 +20,7 @@ int main(int argc, char **argv)
     void *p4;
     int ret;
 
-    ret = dma_init(13); 
+    ret = dma_init(14); 
     if (ret != 0)
     {
         printf("something was wrong\n");
@@ -48,7 +48,8 @@ int main(int argc, char **argv)
 void test_bit_man() {
 
     //int num = 16;
-    char arr[64];
+    char arr[65];
+    arr[64] = '\0';
    
     int is_first = 0;
     int size = 8;

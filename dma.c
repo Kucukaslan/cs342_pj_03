@@ -9,7 +9,6 @@
  *
  */
 
-#include <math.h>
 #include <pthread.h>
 #include <stdio.h> // to include stdin, stdout and some constants e.g. NULL
 #include <stdlib.h>
@@ -20,12 +19,13 @@
 
 #define DMA_WORD_LENGTH_BYTE 8
 #define DMA_BIT_PER_BYTE 8
+const int DMA_WORD_LENGTH_BIT = DMA_WORD_LENGTH_BYTE * DMA_BIT_PER_BYTE;
+#define DMA_RESERVED_SPACE_BYTE 256
 #define FF 255
 #define FFL 255l
 #define ZERO 0
 
 //#define LEFT_SHIFT = 1 << 6;
-int dbg = 1; // handmade debugger, put print statements in if statement and print only if dbg is 1
 unsigned long *themap;
 int size_in_bits;
 int bitmap_in_bits;
@@ -73,25 +73,17 @@ int dma_init(int m)
      * otherwise the result is implementation-defined.
      */
     size_in_bits = 1;
-    if (dbg > 0)
-    {
-        printf("1. m: %d, size: %d\n", m, size_in_bits);
-    }
+    // printf("1. m: %d, size: %d\n", m, size_in_bits);
+
     size_in_bits = size_in_bits << m; // 1*2^m
 
     // one bit for each WORD
-    bitmap_in_bits = size_in_bits / (DMA_WORD_LENGTH_BYTE * DMA_BIT_PER_BYTE);
-    if (dbg > 0)
-    {
-        printf("2. m: %d, size: %d, bitmap:%d\n", m, size_in_bits, bitmap_in_bits);
-    }
+    bitmap_in_bits = size_in_bits / (DMA_WORD_LENGTH_BIT);
+    // printf("2. m: %d, size: %d, bitmap:%d\n", m, size_in_bits, bitmap_in_bits);
 
     p = mmap(NULL, (size_t)size_in_bits, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-    if (dbg > 0)
-    {
-        // print start address
-        printf("Address of the allocated map %lx\n", (long)p);
-    }
+    // print start address
+    //    printf("Address of the allocated map %lx\n", (long)p);
 
     if (p == MAP_FAILED)
     {
@@ -99,20 +91,14 @@ int dma_init(int m)
 
         return -1;
     }
-    if (dbg > 0)
-    {
-        // print start address
-        printf("not failed to allocate map %lx\n", (long)p);
-    }
+    // printf("not failed to allocate map %lx\n", (long)p);
 
     if (pthread_mutex_lock(&themap_mutex) != 0)
     {
         printf("couldn't get  themap_mutex!\n");
     }
-    if (dbg > 0)
-    {
-        printf("got the lock\n");
-    }
+    //  printf("got the lock\n");
+
     themap = p;
     for (int i = 0; DMA_BIT_PER_BYTE * i < size_in_bits; i++)
     {
@@ -124,65 +110,97 @@ int dma_init(int m)
             t = t | 255;
         }
         ((unsigned long *)themap)[i] = t;
-        //printf("add %p : val %lu \n", themap + i, ((unsigned long *)themap)[i]);
+        // printf("add %p : val %lu \n", themap + i, ((unsigned long *)themap)[i]);
     }
 
     // allocate first bitmap_in_bits + reserved_area_size_in_bits
-    int bitmap_word_count = bitmap_in_bits / (DMA_WORD_LENGTH_BYTE * DMA_BIT_PER_BYTE);
+    int bitmap_word_count = bitmap_in_bits / (DMA_WORD_LENGTH_BIT);
 
     // since m>=14 it is guaranteed that 2^8|bitmap_in_bits. (in fact bitmap_word_count will be multiple of 4)
     // search word by word to find appropriate place
-    int new_value = 0;
+    unsigned long int new_value = 0;
     // set first to digit to 01
     int i = 0;
     int word_index = 0;
-    printf("before the while\n");
-
+    // printf("before the while\n");
+    int size_to_be_allocated = bitmap_in_bits;
     while (i < bitmap_word_count)
     {
-        if (i < 2)
-        {
-            if (i + 8 <= bitmap_word_count)
-            {
-                new_value = (1 << 6); // safely ignore themap[word_index]
-                i = i + 8;
-            }
-            else
-            {
-                // set 01_0...0_1...1
-                new_value = ((1 << (bitmap_word_count - i - 2)) | FF >> (bitmap_word_count - i)) &
-                            themap[word_index]; // the two are for the first 01
-                printf("else new_value: %d, word_index %d, lh: %d, rh: %d\n", new_value, word_index,
-                       1 << (bitmap_word_count - i - 2), FF >> (bitmap_word_count - i));
+        // printf("in the while, word_index: %d , bitmap_word_count: %d \n", word_index, bitmap_word_count);
 
-                i = bitmap_word_count;
-            }
-            printf("i<2 new_value: %d, word_index %d\n", new_value, word_index);
-            themap[word_index] = new_value;
+        size_to_be_allocated = bitmap_word_count - word_index * (DMA_WORD_LENGTH_BIT);
+        if (size_to_be_allocated > (DMA_WORD_LENGTH_BIT))
+        {
+            size_to_be_allocated = (DMA_WORD_LENGTH_BIT);
+        }
+
+        if (word_index == 0)
+        {
+            new_value = word_manipulator(1, 0, size_to_be_allocated);
+            themap[word_index] = new_value & themap[word_index];
+            // printf("new_value: %lu,size_to_be_allocated: %d, word_index: %d , bitmap_word_count: %d \n", new_value,
+            // size_to_be_allocated, word_index , bitmap_word_count);
         }
         else
         {
-            if (i + 8 >= bitmap_word_count)
-            {
-                new_value = 0; // safely ignore themap[word_index]
-                i = i + 8;
-            }
-            else
-            {
-                new_value = (FF >> (bitmap_word_count - i)) & themap[word_index]; //
-                i = bitmap_word_count;
-            }
-
-            printf("i>2 new_value: %d, word_index %d\n", new_value, word_index);
-            themap[word_index] = new_value;
+            // it is guaranteed that it starts from beginning
+            new_value = word_manipulator(0, 0, size_to_be_allocated);
+            themap[word_index] = new_value & themap[word_index];
+            // printf("new_value: %lu,size_to_be_allocated: %d, word_index: %d , bitmap_word_count: %d \n", new_value,
+            // size_to_be_allocated, word_index , bitmap_word_count);
         }
+        // printf("new_value: %lu,size_to_be_allocated: %d, word_index: %d , bitmap_word_count: %d \n", new_value,
+        //        size_to_be_allocated, word_index, bitmap_word_count);
+
+        i = i + size_to_be_allocated;
         word_index = word_index + 1;
     }
-    pthread_mutex_unlock(&themap_mutex);
-    if (dbg > 0)
+
+    // allocate the place for the "reserved space" of 256 bytes
+    int reserved_word_count = DMA_RESERVED_SPACE_BYTE / DMA_WORD_LENGTH_BYTE;
+    int start_index_in_word = bitmap_word_count % DMA_WORD_LENGTH_BIT;
+    int is_first = 1;
+    word_index = bitmap_word_count / (DMA_WORD_LENGTH_BIT);
+    size_to_be_allocated = reserved_word_count;
+    i = 0;
+    while (i < reserved_word_count)
     {
-        printf("unlocked the lock\n");
+        // printf("in the reserved while, word_index: %d , reserved_word_count: %d \n", word_index,
+        // reserved_word_count);
+
+        size_to_be_allocated = reserved_word_count - i;
+        if (size_to_be_allocated > DMA_WORD_LENGTH_BIT)
+        {
+            size_to_be_allocated = DMA_WORD_LENGTH_BIT;
+        }
+
+        if (is_first)
+        {
+            new_value = word_manipulator(1, start_index_in_word, size_to_be_allocated);
+            themap[word_index] = new_value & themap[word_index];
+            is_first = 0;
+            // printf("new_value: %lu,size_to_be_allocated: %d, word_index: %d , reserved_word_count: %d \n", new_value,
+            // size_to_be_allocated, word_index , reserved_word_count);
+        }
+        else
+        {
+            // it is guaranteed that it starts from beginning
+            new_value = word_manipulator(0, start_index_in_word, size_to_be_allocated);
+            themap[word_index] = new_value & themap[word_index];
+            // printf("new_value: %lu,size_to_be_allocated: %d, word_index: %d , reserved_word_count: %d \n", new_value,
+            // size_to_be_allocated, word_index , reserved_word_count);
+        }
+        // printf("new_value: %lu,size_to_be_allocated: %d, word_index: %d , reserved_word_count: %d \n", new_value,
+        //        size_to_be_allocated, word_index, reserved_word_count);
+
+        i = i + size_to_be_allocated;
+        word_index = word_index + 1;
     }
+
+    pthread_mutex_unlock(&themap_mutex);
+
+    // printf("unlocked the lock\n");
+
     return 0;
 }
 
@@ -269,32 +287,28 @@ void dma_print_page(int pno)
  */
 void dma_print_bitmap()
 {
-    if (dbg > 0)
-    {
-        printf("dma_print started: \n\n");
-    }
+    // printf("dma_print started: \n\n");
+
     pthread_mutex_lock(&themap_mutex);
 
-    for (int k = 0; 8 * k < bitmap_in_bits; k++)
+    for (int k = 0; 64 * k < bitmap_in_bits; k++)
     {
         // printf("\nadd %p : val %ld  : \n",themap + k, themap[k] );
         unsigned long num = ((long *)themap)[k];
         // printf("\nadd %p: val %ld  : \n",themap + k, num );
 
-        for (int j = 7; j >= 0; j--)
+        for (int j = 63; j >= 0; j--)
         {
             // printf(" num: %ld : ", num);
             putc((num >> j & 1) == 1 ? '1' : '0', stdout);
             // num>>=1;
+            if (j % 8 == 0)
+            {
+                putc(' ', stdout);
+            }
         }
-        if (k % 8 == 7)
-        {
-            putc('\n', stdout);
-        }
-        else
-        {
-            putc(' ', stdout);
-        }
+
+        putc('\n', stdout);
     }
 
     putc('\n', stdout);
@@ -355,49 +369,63 @@ int dma_give_intfrag()
     exit(47);
 }
 
-unsigned long int word_manipulator(int is_first, int start, int size)
+/**
+ * @brief Calculates the new value for a word to be (bitwise) ANDed
+ * for allocation.
+ *
+ * @param is_new_allocation if the allocated place started
+ * @param start
+ * @param size
+ * @return unsigned long int
+ */
+unsigned long int word_manipulator(int is_new_allocation, int start, int size)
 {
-    unsigned long int ALL_ONE = FFL << 7* DMA_BIT_PER_BYTE | FFL << 6* DMA_BIT_PER_BYTE | FFL << 5* DMA_BIT_PER_BYTE | FFL << 4* DMA_BIT_PER_BYTE | FFL << 3* DMA_BIT_PER_BYTE | FFL << 2* DMA_BIT_PER_BYTE | FFL << 1* DMA_BIT_PER_BYTE | FFL;
+    unsigned long int ALL_ONE = FFL << 7 * DMA_BIT_PER_BYTE | FFL << 6 * DMA_BIT_PER_BYTE |
+                                FFL << 5 * DMA_BIT_PER_BYTE | FFL << 4 * DMA_BIT_PER_BYTE |
+                                FFL << 3 * DMA_BIT_PER_BYTE | FFL << 2 * DMA_BIT_PER_BYTE |
+                                FFL << 1 * DMA_BIT_PER_BYTE | FFL;
     unsigned long int result = ALL_ONE;
     unsigned long int ALIGN_SIZE_ZEROS;
     unsigned long int ALIGN_START_POINT;
-    //printf("result: %lu\n", result);
+    // printf("result: %lu\n", result);
 
     ALIGN_SIZE_ZEROS = ALL_ONE >> (start + size);
-    if(start + size >= 64) {
+    if (start + size >= 64)
+    {
         ALIGN_SIZE_ZEROS = 0UL;
-    }   
+    }
 
     ALIGN_START_POINT = ALL_ONE << (64 - start);
-    if( start <= 0) {
-            ALIGN_START_POINT = 0UL;
+    if (start <= 0)
+    {
+        ALIGN_START_POINT = 0UL;
     }
 
-
-    if (is_first)
-    {      
-        result = (1l << (62 - start)) | ALIGN_SIZE_ZEROS| ALIGN_START_POINT;
-        //printf("result: %lu\n", result);
+    if (is_new_allocation)
+    {
+        result = (1l << (62 - start)) | ALIGN_SIZE_ZEROS | ALIGN_START_POINT;
+        // printf("result: %lu, is_first %d\n", result, is_new_allocation);
     }
     else
-    {        
+    {
         result = ALIGN_SIZE_ZEROS | ALIGN_START_POINT;
-        //printf("result: %lu, ALL_ONE >> (start + size): %lu,  ALL_ONE << (64 - start): %lu\n", result, ALL_ONE >> (start + size), ALL_ONE << (64 - start));
+        // printf("result: %lu, ALL_ONE >> (start + size): %lu,  ALL_ONE << (64 - start): %lu\n", result, ALL_ONE >>
+        // (start + size), ALL_ONE << (64 - start));
     }
     char tmp[64];
     word_to_binary(result, tmp);
-    //printf("PRETEST: %s\n", tmp);
+    // printf("PRETEST: %s\n", tmp);
     return result;
 }
 
 void word_to_binary(unsigned long int num, char *binary)
 {
     // char binary[8] = "12345678";
-    //printf("binary: %s\n", binary);
+    // printf("binary: %s\n", binary);
 
     char ch = 'a';
-    int length = DMA_WORD_LENGTH_BYTE * DMA_BIT_PER_BYTE;
-    for (int j = length -1 ; j >= 0; j--)
+    int length = DMA_WORD_LENGTH_BIT;
+    for (int j = length - 1; j >= 0; j--)
     {
         // printf(" num: %d \n", num);
         ch = (num >> j & 1) == 1 ? '1' : '0';
@@ -405,10 +433,9 @@ void word_to_binary(unsigned long int num, char *binary)
 
         // printf("binary: %s, ch: %c\n", binary, ch);
 
-        binary[length -1 - j] = ch;
+        binary[length - 1 - j] = ch;
         // num>>=1;
-        //printf("binary: %s\n", binary);
+        // printf("binary: %s\n", binary);
     }
-    //printf("result: %lu, bin: %s\n", num, binary);
-
+    // printf("result: %lu, bin: %s\n", num, binary);
 }
