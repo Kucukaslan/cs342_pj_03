@@ -28,7 +28,7 @@ int main(int argc, char **argv)
 
     dma_print_bitmap();
 
-    p1 = dma_alloc(100); // allocate space for 100 bytes: 14 WORDS
+    p1 = dma_alloc(100000000); // allocate space for 100 bytes: 14 WORDS
     printf("\n\np1: %p, p2: %p, p3: %p, p4: %p\n\n", p1, p2, p3, p4);
     // dma_print_bitmap();
 

@@ -32,6 +32,7 @@ int bitmap_in_bits;
 int reserved_area_size_in_bits = 256 * DMA_BIT_PER_BYTE;
 int internal_fragmentation_amount = 0;
 int DMA_TOTAL_WORD_COUNT;
+int DMA_TOTAL_BITMAP_WORD_COUNT;
 pthread_mutex_t themap_mutex; // = PTHREAD_MUTEX_INITIALIZER;
 
 /**
@@ -78,9 +79,10 @@ int dma_init(int m)
 
     size_in_bits = size_in_bits << m; // 1*2^m
     DMA_TOTAL_WORD_COUNT = size_in_bits / DMA_WORD_LENGTH_BYTE;
-
     // one bit for each WORD
     bitmap_in_bits = size_in_bits / (DMA_WORD_LENGTH_BIT);
+    DMA_TOTAL_BITMAP_WORD_COUNT = bitmap_in_bits / DMA_WORD_LENGTH_BIT; 
+
     // printf("2. m: %d, size: %d, bitmap:%d\n", m, size_in_bits, bitmap_in_bits);
 
     p = mmap(NULL, (size_t)size_in_bits, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
@@ -273,7 +275,7 @@ void *dma_alloc(int size)
                 word_index = 1 + word_index;
                 bit_index = 0;
                 // check if word_index is still valid if not search is failed otherwise update current word
-                if (DMA_TOTAL_WORD_COUNT <= word_index)
+                if (DMA_TOTAL_BITMAP_WORD_COUNT <= word_index)
                 {
                     has_failed = 1;
                     // break;
@@ -308,7 +310,7 @@ void *dma_alloc(int size)
                     word_index = 1 + word_index;
                     bit_index = 0;
                     // check if word_index is still valid if not search is failed otherwise update current word
-                    if (DMA_TOTAL_WORD_COUNT <= word_index)
+                    if (DMA_TOTAL_BITMAP_WORD_COUNT <= word_index)
                     {
                         has_failed = 1;
                         // break;
