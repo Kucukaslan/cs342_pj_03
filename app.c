@@ -8,23 +8,29 @@ void test_bit_man();
 void test_word_to_binary();
 int main(int argc, char **argv)
 {
-    // test_word_to_binary();
-    // test_bit_man();
-    printf("End tests, start main\n");
 
-    void *p1 = NULL;
-    void *p2 = NULL;
-    void *p3 = NULL;
-    void *p4 = NULL;
-    int ret;
+    //test_word_to_binary();
+    test_bit_man();
+    printf("something\n");
+
+
+    void *p1;
+    void *p2;
+    void *p3;
+    void *p4;
+    void *ret;
 
     ret = dma_init(17);
     if (ret != 0)
     {
         printf("something was wrong\n");
-        exit(20);
+        //exit(20);
     }
     // printf("before calling dma_print_bitmap\n");
+    dma_print_bitmap();
+
+    dma_free(ret);
+    //printf("before calling dma_print_bitmap\n");
 
     dma_print_bitmap();
 
