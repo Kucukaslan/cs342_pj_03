@@ -235,12 +235,14 @@ void *dma_alloc(int size)
 {
     pthread_mutex_lock(&themap_mutex);
     void *pointer = NULL;
-    int word_count_to_allocate = size / (2 * DMA_WORD_LENGTH_BYTE);// (half of the floor of word)
-    int new_internal_fragmentation = size % (2 * DMA_WORD_LENGTH_BYTE);
-    if (new_internal_fragmentation > 0)// handmade ceil function
+    int word_count_to_allocate = size / (2 * DMA_WORD_LENGTH_BYTE); // (half of the floor of word)
+    int extra_internal_fragmentation =  size % (2 * DMA_WORD_LENGTH_BYTE);
+    if (extra_internal_fragmentation > 0)// handmade ceil function
     {
         word_count_to_allocate = 1 + word_count_to_allocate;
-        internal_fragmentation_amount = internal_fragmentation_amount + new_internal_fragmentation;
+        internal_fragmentation_amount = internal_fragmentation_amount
+                                     + (2 * DMA_WORD_LENGTH_BYTE - extra_internal_fragmentation);
+        printf("Internal: %d, fragm: %d \n", internal_fragmentation_amount, extra_internal_fragmentation);
     }
     //
     word_count_to_allocate = 2 * word_count_to_allocate;
@@ -546,7 +548,7 @@ void dma_print_blocks()
  */
 int dma_give_intfrag()
 {
-    exit(47);
+    return internal_fragmentation_amount;
 }
 
 /**

@@ -1,4 +1,4 @@
-all: clean libdma.a app
+all: libdma.a app
 libdma.a: dma.c
 	gcc -Wall -g -c dma.c
 	ar rcs libdma.a dma.o

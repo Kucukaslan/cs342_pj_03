@@ -31,31 +31,30 @@ int main(int argc, char **argv)
     dma_print_bitmap();
 
     p1 = dma_alloc(100); // allocate space for 100 bytes: 14 WORDS
-    printf("\n\np1: %p, p2: %p, p3: %p, p4: %p\n\n", p1, p2, p3, p4);
+    printf("\n\np1: %p, p2: %p, p3: %p, p4: %p, int_frag: %d\n\n", p1, p2, p3, p4, dma_give_intfrag());
     // dma_print_bitmap();
 
     p2 = dma_alloc(1024); // 128 WORDS
-    printf("\n\np1: %p, p2: %p, p3: %p, p4: %p\n\n", p1, p2, p3, p4);
+    printf("\n\np1: %p, p2: %p, p3: %p, p4: %p, int_frag: %d\n\n", p1, p2, p3, p4, dma_give_intfrag());
     // dma_print_bitmap();
 
     p3 = dma_alloc(64); // 8 WORDS
-    printf("\n\np1: %p, p2: %p, p3: %p, p4: %p\n\n", p1, p2, p3, p4);
+    printf("\n\np1: %p, p2: %p, p3: %p, p4: %p, int_frag: %d\n\n", p1, p2, p3, p4, dma_give_intfrag());
     // dma_print_bitmap();
 
     p4 = dma_alloc(220); // 28 WORDS
-    printf("\n\np1: %p, p2: %p, p3: %p, p4: %p\n\n", p1, p2, p3, p4);
+    printf("\n\np1: %p, p2: %p, p3: %p, p4: %p, int_frag: %d\n\n", p1, p2, p3, p4, dma_give_intfrag());
     dma_print_bitmap();
 
     dma_free(p1);
     dma_free(p3);
-    printf("\n\nfree 1&3 p1: %p, p2: %p, p3: %p, p4: %p\n\n", p1, p2, p3, p4);
+    printf("\n\nfree 1&3 p1: %p, p2: %p, p3: %p, p4: %p, int_frag: %d\n\n", p1, p2, p3, p4, dma_give_intfrag());
     dma_print_bitmap();
 
-    p1 = dma_alloc(16); // 2 WORDS
+    p1 = dma_alloc(17); // 2 WORDS
     p3 = dma_alloc(800); // 80 WORDS
-    printf("\n\nnew p1: %p, p2: %p, p3: %p, p4: %p\n\n", p1, p2, p3, p4);
+    printf("\n\nnew p1: %p, p2: %p, p3: %p, p4: %p, int_frag: %d\n\n", p1, p2, p3, p4, dma_give_intfrag());
     dma_print_bitmap();
-
 
     exit(0);
 
