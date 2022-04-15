@@ -242,7 +242,7 @@ void *dma_alloc(int size)
         word_count_to_allocate = 1 + word_count_to_allocate;
         internal_fragmentation_amount = internal_fragmentation_amount
                                      + (2 * DMA_WORD_LENGTH_BYTE - extra_internal_fragmentation);
-        printf("Internal: %d, fragm: %d \n", internal_fragmentation_amount, extra_internal_fragmentation);
+        //printf("Internal: %d, fragm: %d \n", internal_fragmentation_amount, extra_internal_fragmentation);
     }
     //
     word_count_to_allocate = 2 * word_count_to_allocate;
@@ -398,6 +398,12 @@ void *dma_alloc(int size)
  */
 void dma_free(void *p)
 {
+    if(p == NULL) {
+        return;
+    }
+    else if( p > ((void*) themap) + DMA_TOTAL_WORD_COUNT) {
+        return;
+    }
     pthread_mutex_lock(&themap_mutex);
     ulong relptr = ((ulong) p) - (ulong) themap;
     ulong word_count = relptr / DMA_WORD_LENGTH_BYTE;
@@ -540,7 +546,7 @@ void dma_print_blocks()
     enum BLOCK { ALLOCATED, FREE};
     enum BLOCK current = ALLOCATED;
     void * block_start = themap;
-    int current_2_bits;
+    unsigned int current_2_bits;
     int current_block_size = 2;
 
     for(int i=2; i < bitmap_in_bits; i = i+2) {
@@ -549,7 +555,9 @@ void dma_print_blocks()
         bit_index = i % DMA_WORD_LENGTH_BIT;
 
         // get dibit (crumb) starting at i
-        current_2_bits = 3 & (themap[word_index] >> (DMA_WORD_LENGTH_BIT - bit_index));
+        current_2_bits = 3 & (themap[word_index] >> (DMA_WORD_LENGTH_BIT - bit_index - 2));
+        char arr[65];        arr[65] = '\0';
+        word_to_binary(themap[word_index], arr);
         if( current == ALLOCATED && current_2_bits == 0b00){
             // fine
             current_block_size += 2;
@@ -559,6 +567,8 @@ void dma_print_blocks()
             current_block_size +=2;
         }
         else {
+            // printf("word: %s, current_bits: %d, word_index: %d, bit_index: %d, i: %d,  \n", arr, current_2_bits,word_index,bit_index, i);
+
             // the pattern is changed, now print the results
             //  * A, 0x00007ffff75e4000, 0x400 (1024)
             current_block_size = DMA_WORD_LENGTH_BYTE * current_block_size;
@@ -567,11 +577,15 @@ void dma_print_blocks()
 
             // start to new pattern
             block_start = themap + DMA_WORD_LENGTH_BIT * (word_index * DMA_WORD_LENGTH_BIT  + bit_index);
-            current = current_2_bits == 0b11 ? FREE : ALLOCATED;
+            current = current_2_bits == 3 ? FREE : ALLOCATED;
             current_block_size = 2;
         }
 
     }
+    // print the last block:
+    current_block_size = DMA_WORD_LENGTH_BYTE * current_block_size;
+    printf("%s, %p, %x (%d)\n",current == FREE ? "F": "A",
+           block_start, current_block_size, current_block_size);
 }
 
 /**
