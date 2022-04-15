@@ -100,7 +100,7 @@ int dma_init(int m)
     size_in_bytes = size_in_bytes << m;// 1*2^m
     DMA_TOTAL_WORD_COUNT = size_in_bytes / DMA_WORD_LENGTH_BYTE;
     // one bit for each WORD
-    bitmap_in_bits = size_in_bytes / (DMA_WORD_LENGTH_BIT);
+    bitmap_in_bits = DMA_TOTAL_WORD_COUNT;
     DMA_TOTAL_BITMAP_WORD_COUNT = bitmap_in_bits / DMA_WORD_LENGTH_BIT;
 
     // printf("2. m: %d, size: %d, bitmap:%d\n", m, size_in_bytes, bitmap_in_bits);
@@ -509,6 +509,7 @@ void dma_print_bitmap()
  * and decimal digits (in parentheses), in a separate line.
  * It will also print at the beginning of the line
  *  if the block is allocated (A) or is free (F).
+ *
  * The printing will be in the order of start addresses.
  * You will also print information about the used blocks
  * containing the bitmap and reserved space.
@@ -534,7 +535,43 @@ void dma_print_bitmap()
  */
 void dma_print_blocks()
 {
-    exit(47);
+    int word_index = 0;
+    int bit_index = 0;
+    enum BLOCK { ALLOCATED, FREE};
+    enum BLOCK current = ALLOCATED;
+    void * block_start = themap;
+    int current_2_bits;
+    int current_block_size = 2;
+
+    for(int i=2; i < bitmap_in_bits; i = i+2) {
+        // find word_index & bit_index
+        word_index = i / DMA_WORD_LENGTH_BIT;
+        bit_index = i % DMA_WORD_LENGTH_BIT;
+
+        // get dibit (crumb) starting at i
+        current_2_bits = 3 & (themap[word_index] >> (DMA_WORD_LENGTH_BIT - bit_index));
+        if( current == ALLOCATED && current_2_bits == 0b00){
+            // fine
+            current_block_size += 2;
+        }
+        else if( current == FREE && current_2_bits == 0b11) {
+            // fine, pattern continues
+            current_block_size +=2;
+        }
+        else {
+            // the pattern is changed, now print the results
+            //  * A, 0x00007ffff75e4000, 0x400 (1024)
+            current_block_size = DMA_WORD_LENGTH_BYTE * current_block_size;
+            printf("%s, %p, %x (%d)\n",current == FREE ? "F": "A",
+                   block_start, current_block_size, current_block_size);
+
+            // start to new pattern
+            block_start = themap + DMA_WORD_LENGTH_BIT * (word_index * DMA_WORD_LENGTH_BIT  + bit_index);
+            current = current_2_bits == 0b11 ? FREE : ALLOCATED;
+            current_block_size = 2;
+        }
+
+    }
 }
 
 /**

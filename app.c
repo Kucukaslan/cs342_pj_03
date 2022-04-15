@@ -56,10 +56,9 @@ int main(int argc, char **argv)
     printf("\n\nnew p1: %p, p2: %p, p3: %p, p4: %p, int_frag: %d\n\n", p1, p2, p3, p4, dma_give_intfrag());
     dma_print_bitmap();
 
-    exit(0);
-
     dma_free(p3);
     p3 = dma_alloc(2048);
+    dma_print_bitmap();
     dma_print_blocks();
     dma_free(p1);
     dma_free(p2);
