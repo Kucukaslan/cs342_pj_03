@@ -29,13 +29,31 @@ const int DMA_WORD_LENGTH_BIT = DMA_WORD_LENGTH_BYTE * DMA_BIT_PER_BYTE;
 
 //#define LEFT_SHIFT = 1 << 6;
 unsigned long *themap;
-int size_in_bits;// todo actually total size in BYTEs
+int size_in_bytes;
 int bitmap_in_bits;
 int reserved_area_size_in_bits = 256 * DMA_BIT_PER_BYTE;
 int internal_fragmentation_amount = 0;
 int DMA_TOTAL_WORD_COUNT;
 int DMA_TOTAL_BITMAP_WORD_COUNT;
 pthread_mutex_t themap_mutex;// = PTHREAD_MUTEX_INITIALIZER;
+
+
+
+ulong tmIndexOf(ulong i)
+{
+    return i / 64;
+}
+ulong ulIndexOf(ulong i)
+{
+    return i % 64;
+}
+
+ulong ul2bits(ulong w, ulong idx)
+{
+    //left to right
+    ulong s = w >> (62 - idx);
+    return s & 0b11;
+}
 
 /**
  * @brief This function will initialize the library.
@@ -59,21 +77,6 @@ pthread_mutex_t themap_mutex;// = PTHREAD_MUTEX_INITIALIZER;
  * @return int If initialization is successful, the function will return 0.
 Otherwise, it will return -1.
  */
-ulong tmIndexOf(ulong i)
-{
-    return i / 64;
-}
-ulong ulIndexOf(ulong i)
-{
-    return i % 64;
-}
-
-ulong ul2bits(ulong w, ulong idx)
-{
-    //left to right
-    ulong s = w >> (62 - idx);
-    return s & 0b11;
-}
 int dma_init(int m)
 {
     pthread_mutex_init(&themap_mutex, NULL);
@@ -91,18 +94,18 @@ int dma_init(int m)
      * The right shift is equivalent to division by 2^E2 if E1 is unsigned or it has a nonnegative value;
      * otherwise the result is implementation-defined.
      */
-    size_in_bits = 1;
-    // printf("1. m: %d, size: %d\n", m, size_in_bits);
+    size_in_bytes = 1;
+    // printf("1. m: %d, size: %d\n", m, size_in_bytes);
 
-    size_in_bits = size_in_bits << m;// 1*2^m
-    DMA_TOTAL_WORD_COUNT = size_in_bits / DMA_WORD_LENGTH_BYTE;
+    size_in_bytes = size_in_bytes << m;// 1*2^m
+    DMA_TOTAL_WORD_COUNT = size_in_bytes / DMA_WORD_LENGTH_BYTE;
     // one bit for each WORD
-    bitmap_in_bits = size_in_bits / (DMA_WORD_LENGTH_BIT);
+    bitmap_in_bits = size_in_bytes / (DMA_WORD_LENGTH_BIT);
     DMA_TOTAL_BITMAP_WORD_COUNT = bitmap_in_bits / DMA_WORD_LENGTH_BIT;
 
-    // printf("2. m: %d, size: %d, bitmap:%d\n", m, size_in_bits, bitmap_in_bits);
+    // printf("2. m: %d, size: %d, bitmap:%d\n", m, size_in_bytes, bitmap_in_bits);
 
-    p = mmap(NULL, (size_t) size_in_bits, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    p = mmap(NULL, (size_t) size_in_bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     // print start address
     //    printf("Address of the allocated map %lx\n", (long)p);
 
@@ -118,7 +121,7 @@ int dma_init(int m)
     }
     //  printf("got the lock\n");
     themap = p;
-    for (int i = 0; DMA_BIT_PER_BYTE * i < size_in_bits; i++) {
+    for (int i = 0; DMA_BIT_PER_BYTE * i < size_in_bytes; i++) {
         // printf("add %p : val %lu\n",themap +i , themap[i] );
 
         ((unsigned long *) themap)[i] = ULONG_MAX;
@@ -288,11 +291,13 @@ void *dma_alloc(int size)
             // has_found = 1; // todo acşually had NOT found
             size_so_far = 2;
 
-            // so far we have the next first empty place but we are but not sure if there
+            // so far we have the next first empty place but we are not sure if there
             // is enough space to allocate
-            while (!has_failed && !has_found) {
-                printf("Search sufficiently large place: %s, word_index: %d, bit_index: %d\n",
-                       has_failed ? "Search Failed" : "Found at", word_index, bit_index);
+            //
+            int is_end_of_this_free_part = 0;
+            while (!has_failed && !has_found && !is_end_of_this_free_part) {
+                printf("Search sufficiently large place: %s word_index: %d, bit_index: %d\n",
+                       has_failed ? "Search Failed" : "Travesing at", word_index, bit_index);
                 bit_index = 2 + bit_index;
                 // if this word ended, go to the next word
                 if (bit_index > DMA_WORD_LENGTH_BIT - bit_alignment_to_shift) {
@@ -300,6 +305,7 @@ void *dma_alloc(int size)
                     bit_index = 0;
                     // check if word_index is still valid if not search is failed otherwise update current word
                     if (DMA_TOTAL_BITMAP_WORD_COUNT <= word_index) {
+                        printf("DMA_TOTAL_BITMAP_WORD_COUNT %d,word_index : %d ",DMA_TOTAL_BITMAP_WORD_COUNT, word_index);
                         has_failed = 1;
                         // break;
                     } else {
@@ -310,11 +316,19 @@ void *dma_alloc(int size)
                 if (current_2_bits == 3) {
                     size_so_far = 2 + size_so_far;
                 }
+                else {
+                    is_end_of_this_free_part = 1;
+                }
                 if (size_so_far >= word_count_to_allocate) {
                     printf("Found sufficiently large place: %s, word_index: %d, bit_index: %d\n",
-                           has_failed ? "Search Failed" : "Found at", word_index, bit_index);
+                           has_failed !=0 ? "Search Failed" : "Found at", word_index, bit_index);
                     has_found = 1;
                 }
+                else{
+                    printf("Still searching for sufficiently large place: %s, word_index: %d, bit_index: %d\n",
+                           has_failed !=0 ? "Search Failed" : "Found at", word_index, bit_index);
+
+                };
             }
             printf("Left the inner while: %s, word_index: %d, bit_index: %d\n",
                    has_failed ? "Search Failed" : "Found at", word_index, bit_index);

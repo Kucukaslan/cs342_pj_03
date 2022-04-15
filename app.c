@@ -13,11 +13,11 @@ int main(int argc, char **argv)
     printf("something\n");
 
 
-    void *p1;
-    void *p2;
-    void *p3;
-    void *p4;
-    void *ret;
+    void *p1 = NULL;
+    void *p2 = NULL;
+    void *p3 = NULL;
+    void *p4 = NULL;
+    int ret;
 
     ret = dma_init(17);
     if (ret != 0) {
@@ -48,8 +48,14 @@ int main(int argc, char **argv)
 
     dma_free(p1);
     dma_free(p3);
-
+    printf("\n\nfree 1&3 p1: %p, p2: %p, p3: %p, p4: %p\n\n", p1, p2, p3, p4);
     dma_print_bitmap();
+
+    p1 = dma_alloc(16); // 2 WORDS
+    p3 = dma_alloc(800); // 80 WORDS
+    printf("\n\nnew p1: %p, p2: %p, p3: %p, p4: %p\n\n", p1, p2, p3, p4);
+    dma_print_bitmap();
+
 
     exit(0);
 
