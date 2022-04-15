@@ -1,5 +1,7 @@
-all: libdma.a app
-libdma.a: dma.c
+.PHONY : all libdma.a app
+all: libdma.a app dma.c dma.h app.c
+
+libdma.a: dma.c dma.h
 	gcc -Wall -g -c dma.c
 	ar rcs libdma.a dma.o
 app: app.c
