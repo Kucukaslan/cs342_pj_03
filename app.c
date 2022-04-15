@@ -1,4 +1,4 @@
-#include "dma.h" // include the library interface
+#include "dma.h"// include the library interface
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/mman.h>
@@ -8,7 +8,6 @@ void test_bit_man();
 void test_word_to_binary();
 int main(int argc, char **argv)
 {
-
     //test_word_to_binary();
     test_bit_man();
     printf("something\n");
@@ -21,20 +20,17 @@ int main(int argc, char **argv)
     void *ret;
 
     ret = dma_init(17);
-    if (ret != 0)
-    {
+    if (ret != 0) {
         printf("something was wrong\n");
         //exit(20);
     }
     // printf("before calling dma_print_bitmap\n");
     dma_print_bitmap();
 
-    dma_free(ret);
     //printf("before calling dma_print_bitmap\n");
-
     dma_print_bitmap();
 
-    p1 = dma_alloc(100000000); // allocate space for 100 bytes: 14 WORDS
+    p1 = dma_alloc(100); // allocate space for 100 bytes: 14 WORDS
     printf("\n\np1: %p, p2: %p, p3: %p, p4: %p\n\n", p1, p2, p3, p4);
     // dma_print_bitmap();
 
@@ -48,6 +44,11 @@ int main(int argc, char **argv)
 
     p4 = dma_alloc(220); // 28 WORDS
     printf("\n\np1: %p, p2: %p, p3: %p, p4: %p\n\n", p1, p2, p3, p4);
+    dma_print_bitmap();
+
+    dma_free(p1);
+    dma_free(p3);
+
     dma_print_bitmap();
 
     exit(0);
