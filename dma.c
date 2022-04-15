@@ -259,7 +259,7 @@ void *dma_alloc(int size)
     int size_so_far = 0;
     int bit_alignment_to_shift = 2;
     int current_2_bits;
-    printf("Want to allocate %d words\n", word_count_to_allocate);
+    //printf("Want to allocate %d words\n", word_count_to_allocate);
     // i.e. search for next first sufficiently large empty place
     while (!has_found && !has_failed) {
         unsigned long int current_word = themap[word_index];
@@ -282,8 +282,8 @@ void *dma_alloc(int size)
             }
             current_2_bits = 3 & (current_word >> (DMA_WORD_LENGTH_BIT - bit_alignment_to_shift - bit_index));
         }
-        printf("FIRST EMPTY CRUMB: %s, word_index: %d, bit_index: %d\n", has_failed ? "Search Failed" : "Found at",
-               word_index, bit_index);
+        // printf("FIRST EMPTY CRUMB: %s, word_index: %d, bit_index: %d\n", has_failed ? "Search Failed" : "Found at",
+        //        word_index, bit_index);
         if (!has_failed) {
             current_pointer = themap + word_index * DMA_WORD_LENGTH_BIT + bit_index;
             start_word_index = word_index;
@@ -296,8 +296,8 @@ void *dma_alloc(int size)
             //
             int is_end_of_this_free_part = 0;
             while (!has_failed && !has_found && !is_end_of_this_free_part) {
-                printf("Search sufficiently large place: %s word_index: %d, bit_index: %d\n",
-                       has_failed ? "Search Failed" : "Travesing at", word_index, bit_index);
+                // printf("Search sufficiently large place: %s word_index: %d, bit_index: %d\n",
+                //        has_failed ? "Search Failed" : "Travesing at", word_index, bit_index);
                 bit_index = 2 + bit_index;
                 // if this word ended, go to the next word
                 if (bit_index > DMA_WORD_LENGTH_BIT - bit_alignment_to_shift) {
@@ -305,7 +305,7 @@ void *dma_alloc(int size)
                     bit_index = 0;
                     // check if word_index is still valid if not search is failed otherwise update current word
                     if (DMA_TOTAL_BITMAP_WORD_COUNT <= word_index) {
-                        printf("DMA_TOTAL_BITMAP_WORD_COUNT %d,word_index : %d ",DMA_TOTAL_BITMAP_WORD_COUNT, word_index);
+                        // printf("DMA_TOTAL_BITMAP_WORD_COUNT %d,word_index : %d ",DMA_TOTAL_BITMAP_WORD_COUNT, word_index);
                         has_failed = 1;
                         // break;
                     } else {
@@ -320,26 +320,26 @@ void *dma_alloc(int size)
                     is_end_of_this_free_part = 1;
                 }
                 if (size_so_far >= word_count_to_allocate) {
-                    printf("Found sufficiently large place: %s, word_index: %d, bit_index: %d\n",
-                           has_failed !=0 ? "Search Failed" : "Found at", word_index, bit_index);
+                    // printf("Found sufficiently large place: %s, word_index: %d, bit_index: %d\n",
+                    //        has_failed !=0 ? "Search Failed" : "Found at", word_index, bit_index);
                     has_found = 1;
                 }
                 else{
-                    printf("Still searching for sufficiently large place: %s, word_index: %d, bit_index: %d\n",
-                           has_failed !=0 ? "Search Failed" : "Found at", word_index, bit_index);
+                    // printf("Still searching for sufficiently large place: %s, word_index: %d, bit_index: %d\n",
+                    //        has_failed !=0 ? "Search Failed" : "Found at", word_index, bit_index);
 
                 };
             }
-            printf("Left the inner while: %s, word_index: %d, bit_index: %d\n",
-                   has_failed ? "Search Failed" : "Found at", word_index, bit_index);
+            // printf("Left the inner while: %s, word_index: %d, bit_index: %d\n",
+            //        has_failed ? "Search Failed" : "Found at", word_index, bit_index);
         }
     }
 
-    printf("Left the great while: %s, word_index: %d, bit_index: %d\n", has_failed ? "Search Failed" : "Found at",
-           word_index, bit_index);
+    // printf("Left the great while: %s, word_index: %d, bit_index: %d\n", has_failed ? "Search Failed" : "Found at",
+    //       word_index, bit_index);
     if (has_found) {
-        printf("Found sufficiently large place, now will mark it: %s, word_index: %d, bit_index: %d\n",
-               has_failed ? "Search Failed" : "Found at", start_word_index, start_bit_index);
+        // printf("Found sufficiently large place, now will mark it: %s, word_index: %d, bit_index: %d\n",
+        //        has_failed ? "Search Failed" : "Found at", start_word_index, start_bit_index);
         pointer = current_pointer;
         // todo mark corresponding places in bitmap as allocated
         int remained_to_mark = word_count_to_allocate;
@@ -348,28 +348,28 @@ void *dma_alloc(int size)
         unsigned long int new_value;
         int is_first = 1;
         while (remained_to_mark > 0) {
-            printf("Started marking it: %s, word_index: %d, bit_index: %d, remained: %d\n",
-                   has_failed ? "Search Failed" : "Found at", alloc_word_index, alloc_bit_index, remained_to_mark);
+            // printf("Started marking it: %s, word_index: %d, bit_index: %d, remained: %d\n",
+            //        has_failed ? "Search Failed" : "Found at", alloc_word_index, alloc_bit_index, remained_to_mark);
             // should mark until the end of the current word is
             if (remained_to_mark > DMA_WORD_LENGTH_BIT - alloc_bit_index) {
                 new_value = word_manipulator(is_first, alloc_bit_index, DMA_WORD_LENGTH_BIT - alloc_bit_index);
                 remained_to_mark = remained_to_mark - (DMA_WORD_LENGTH_BIT - alloc_bit_index);
                 alloc_bit_index = 0;
 
-                char arr[65];
-                arr[65] = '\0';
-                word_to_binary(new_value, arr);
-                printf("new_value: %s\n", arr);
+                // char arr[65];
+                // arr[65] = '\0';
+                // word_to_binary(new_value, arr);
+                // printf("new_value: %s\n", arr);
                 themap[alloc_word_index] = themap[alloc_word_index] & new_value;
                 alloc_word_index = 1 + alloc_word_index;
             } else {
                 new_value = word_manipulator(is_first, alloc_bit_index, remained_to_mark);
                 remained_to_mark = remained_to_mark - (remained_to_mark);
                 alloc_bit_index = 0;
-                char arr[65];
-                arr[65] = '\0';
-                word_to_binary(new_value, arr);
-                printf("new_value: %s\n", arr);
+                // char arr[65];
+                // arr[65] = '\0';
+                // word_to_binary(new_value, arr);
+                // printf("new_value: %s\n", arr);
                 themap[alloc_word_index] = themap[alloc_word_index] & new_value;
             }
 

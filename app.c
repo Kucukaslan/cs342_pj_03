@@ -8,9 +8,9 @@ void test_bit_man();
 void test_word_to_binary();
 int main(int argc, char **argv)
 {
-    //test_word_to_binary();
-    test_bit_man();
-    printf("something\n");
+    // test_word_to_binary();
+    // test_bit_man();
+    // printf("something\n");
 
 
     void *p1 = NULL;
