@@ -1,5 +1,5 @@
-
 dma.o
 libdma.a
 app
 .vscode/*
+.idea/*
