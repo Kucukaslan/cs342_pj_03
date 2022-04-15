@@ -19,6 +19,7 @@
 
 #include "dma.h"
 
+#define DMA_PAGE_SIZE_BYTE 4096 // 4 KiBhttps://en.wikipedia.org/wiki/Page_(computer_memory)#Multiple_page_sizes
 #define DMA_WORD_LENGTH_BYTE 8
 #define DMA_BIT_PER_BYTE 8
 const int DMA_WORD_LENGTH_BIT = DMA_WORD_LENGTH_BYTE * DMA_BIT_PER_BYTE;
@@ -462,7 +463,31 @@ void dma_free(void *p)
  */
 void dma_print_page(int pno)
 {
-    exit(47);
+    // todo lock the mutex
+    // verify the range
+    int max_pno = size_in_bytes / DMA_PAGE_SIZE_BYTE;
+    int tmp = size_in_bytes % DMA_PAGE_SIZE_BYTE;
+    if(tmp>0) {
+        max_pno++;
+    }
+
+    if(pno > 0 && pno < max_pno ) // since first pno := 0 {
+    {
+        printf("Page number was out of range, it should have been"
+                   " in the interval  in the interval [0, %d) but it is %d", max_pno, pno);
+        return;
+    }
+    int word_per_page = DMA_PAGE_SIZE_BYTE / DMA_WORD_LENGTH_BYTE;
+    int word_index = pno * word_per_page;
+
+    for(int iwc /*indexed_word_count*/ = 0; word_index < DMA_TOTAL_WORD_COUNT && iwc < word_per_page; iwc++ ) {
+        printf("%.16lx", themap[word_index]);
+        if( 3 == iwc % 4) {
+            printf("\n"); //" iwc #%d, wi:%d\n", iwc, word_index);
+        }
+        word_index++;
+    }
+
 }
 
 /**
