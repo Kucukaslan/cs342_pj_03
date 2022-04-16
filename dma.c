@@ -595,7 +595,7 @@ void dma_print_blocks()
 
         // get dibit (crumb) starting at i
         current_2_bits = 3 & (themap[word_index] >> (DMA_WORD_LENGTH_BIT - bit_index - 2));
-        char arr[65];        arr[65] = '\0';
+        char arr[65];        arr[64] = '\0';
         word_to_binary(themap[word_index], arr);
         if( current == ALLOCATED && current_2_bits == 0b00){
             // fine
