@@ -80,6 +80,10 @@ Otherwise, it will return -1.
  */
 int dma_init(int m)
 {
+    if(m <= 0) {
+        printf("Segment size must have been positive but is %d, terminating.\n", m);
+        exit(-1);
+    }
     pthread_mutex_init(&themap_mutex, NULL);
     // if()
     void *p;
@@ -119,6 +123,7 @@ int dma_init(int m)
 
     if (pthread_mutex_lock(&themap_mutex) != 0) {
         printf("couldn't get  themap_mutex!\n");
+        exit(-1);
     }
     //  printf("got the lock\n");
     themap = p;
@@ -344,7 +349,7 @@ void *dma_alloc(int size)
         // printf("Found sufficiently large place, now will mark it: %s, word_index: %d, bit_index: %d\n",
         //        has_failed ? "Search Failed" : "Found at", start_word_index, start_bit_index);
         pointer = current_pointer;
-        // todo mark corresponding places in bitmap as allocated
+        // mark corresponding places in bitmap as allocated
         int remained_to_mark = word_count_to_allocate;
         int alloc_word_index = start_word_index;
         int alloc_bit_index = start_bit_index;
@@ -399,13 +404,21 @@ void *dma_alloc(int size)
  */
 void dma_free(void *p)
 {
+    // although only address of the themap is used, in the condition of the else if,
+    // it is better to be safe than sorry.
+    // Nevertheless, it is TAs's computer's cpu and Bilkent's electricity
+    // why bother that much (on) efficiency?
+    // Just joking, writing code at 4 AM has a bad influence on my humour.
+    pthread_mutex_lock(&themap_mutex);
     if(p == NULL) {
+        pthread_mutex_unlock(&themap_mutex);
         return;
     }
     else if( p > ((void*) themap) + DMA_TOTAL_WORD_COUNT) {
+        pthread_mutex_unlock(&themap_mutex);
         return;
     }
-    pthread_mutex_lock(&themap_mutex);
+
     ulong relptr = ((ulong) p) - (ulong) themap;
     ulong word_count = relptr / DMA_WORD_LENGTH_BYTE;
     ulong uli = word_count % 64;
@@ -463,7 +476,6 @@ void dma_free(void *p)
  */
 void dma_print_page(int pno)
 {
-    // todo lock the mutex
     // verify the range
     int max_pno = size_in_bytes / DMA_PAGE_SIZE_BYTE;
     int tmp = size_in_bytes % DMA_PAGE_SIZE_BYTE;
@@ -479,7 +491,8 @@ void dma_print_page(int pno)
     }
     int word_per_page = DMA_PAGE_SIZE_BYTE / DMA_WORD_LENGTH_BYTE;
     int word_index = pno * word_per_page;
-
+    // now we will start using the map
+    pthread_mutex_lock(&themap_mutex);
     for(int iwc /*indexed_word_count*/ = 0; word_index < DMA_TOTAL_WORD_COUNT && iwc < word_per_page; iwc++ ) {
         printf("%.16lx", themap[word_index]);
         if( 3 == iwc % 4) {
@@ -487,7 +500,7 @@ void dma_print_page(int pno)
         }
         word_index++;
     }
-
+    pthread_mutex_unlock(&themap_mutex);
 }
 
 /**
@@ -566,6 +579,7 @@ void dma_print_bitmap()
  */
 void dma_print_blocks()
 {
+    pthread_mutex_lock(&themap_mutex);
     int word_index = 0;
     int bit_index = 0;
     enum BLOCK { ALLOCATED, FREE};
@@ -597,20 +611,21 @@ void dma_print_blocks()
             // the pattern is changed, now print the results
             //  * A, 0x00007ffff75e4000, 0x400 (1024)
             current_block_size = DMA_WORD_LENGTH_BYTE * current_block_size;
-            printf("%s, %p, %x (%d)\n",current == FREE ? "F": "A",
-                   block_start, current_block_size, current_block_size);
+            printf("%s, 0x%.16lx, 0x%x (%d)\n",current == FREE ? "F": "A",
+                   (long unsigned int) block_start, current_block_size, current_block_size);
 
             // start to new pattern
             block_start = themap + DMA_WORD_LENGTH_BIT * (word_index * DMA_WORD_LENGTH_BIT  + bit_index);
             current = current_2_bits == 3 ? FREE : ALLOCATED;
             current_block_size = 2;
         }
-
     }
     // print the last block:
     current_block_size = DMA_WORD_LENGTH_BYTE * current_block_size;
-    printf("%s, %p, %x (%d)\n",current == FREE ? "F": "A",
-           block_start, current_block_size, current_block_size);
+    printf("%s, 0x%.16lx, %x (%d)\n",current == FREE ? "F": "A",
+           (long unsigned int) block_start, current_block_size, current_block_size);
+    pthread_mutex_unlock(&themap_mutex);
+
 }
 
 /**
@@ -624,6 +639,7 @@ void dma_print_blocks()
  */
 int dma_give_intfrag()
 {
+    // what is the point of the mutex?
     return internal_fragmentation_amount;
 }
 
