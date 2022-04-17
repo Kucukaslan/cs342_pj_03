@@ -62,8 +62,8 @@ void testIntFrag()
     //allocate 10 times
     int rem = size;
     int realRem = size;
-    //printf("%6s, %6s, %6s, %6s\n", "alloc", "frag", "rem", "real");
-    printf("%s, %s, %s, %s, %s\n", "alloc", "frag", "rem", "real", "usec");
+    printf("%6s, %6s, %6s, %6s\n", "alloc", "frag", "rem", "real");
+    //printf("%s, %s, %s, %s, %s\n", "alloc", "frag", "rem", "real", "usec");
     int i = 0;
     struct timeval rt[3];
 
@@ -78,8 +78,8 @@ void testIntFrag()
         }
         rem -= 1;
         realRem -= 16;
-        //printf("%6d, %6d, %6d, %6d\n", i, dma_give_intfrag(), rem, realRem);
-        printf("%d, %d, %d, %d, %ld\n", i, dma_give_intfrag(), rem, realRem, rt[2].tv_sec * 1000000 + rt[2].tv_usec);
+        printf("%6d, %6d, %6d, %6d\n", i, dma_give_intfrag(), rem, realRem);
+        //printf("%d, %d, %d, %d, %ld\n", i, dma_give_intfrag(), rem, realRem, rt[2].tv_sec * 1000000 + rt[2].tv_usec);
     }
     printf("\n");
     dma_print_bitmap();
@@ -110,6 +110,38 @@ int main(int argc, char **argv)
 }
 void testFree()
 {
+    void *p1 = NULL;
+    void *p2 = NULL;
+    void *p3 = NULL;
+    void *p4 = NULL;
+    int ret;
+    void *allocs[64496];
+    printf("%s, %s\n", "freeSize", "usec");
+    for (int asize = 16; asize <= 1024; asize *= 2) {
+        ret = dma_init(20);
+        int count = 0;
+        while (1) {
+            p1 = dma_alloc(asize);
+            if (p1 == NULL) {
+                break;
+            }
+            allocs[count] = p1;
+            count++;
+        }
+        //printf("%d\n", count);
+        //printf("\n");
+
+        //dma_print_bitmap();
+        //printf("%s, %s, %s, %s, %s\n", "alloc", "frag", "rem", "real", "usec");
+        struct timeval rt[3];
+        gettimeofday(&rt[0], NULL);
+        for (int j = 0; j < count; j++) {
+            dma_free(allocs[j]);
+        }
+        gettimeofday(&rt[1], NULL);
+        rt[2] = timevalSubtract(&rt[1], &rt[0]);
+        printf("%d, %ld\n", asize, rt[2].tv_sec * 1000000 + rt[2].tv_usec);
+    }
 }
 struct timeval timevalSubtract(struct timeval *s, struct timeval *e)
 {
