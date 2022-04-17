@@ -405,7 +405,7 @@ void dma_free(void *p)
     if (p == NULL) {
         pthread_mutex_unlock(&themap_mutex);
         return;
-    } else if (p > ((void *) themap) + DMA_TOTAL_WORD_COUNT) {
+    } else if (p > ((void *) themap) + DMA_TOTAL_WORD_COUNT * wordTObyte) {
         pthread_mutex_unlock(&themap_mutex);
         return;
     }
