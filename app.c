@@ -13,9 +13,6 @@ void testFree();
 void testExtFrag()
 {
     void *p1 = NULL;
-    void *p2 = NULL;
-    void *p3 = NULL;
-    void *p4 = NULL;
     int ret;
 
     ret = dma_init(11);
@@ -48,9 +45,6 @@ void testExtFrag()
 void testIntFrag()
 {
     void *p1 = NULL;
-    void *p2 = NULL;
-    void *p3 = NULL;
-    void *p4 = NULL;
     int ret;
     const int size = (1 << 11) - (1 << 5) - 256;
     ret = dma_init(11);
@@ -58,7 +52,7 @@ void testIntFrag()
         printf("something was wrong\n");
         //exit(20);
     }
-    void *allocs[28] = {NULL};
+
     //allocate 10 times
     int rem = size;
     int realRem = size;
@@ -111,14 +105,15 @@ int main(int argc, char **argv)
 void testFree()
 {
     void *p1 = NULL;
-    void *p2 = NULL;
-    void *p3 = NULL;
-    void *p4 = NULL;
     int ret;
     void *allocs[64496];
     printf("%s, %s\n", "freeSize", "usec");
     for (int asize = 16; asize <= 1024; asize *= 2) {
         ret = dma_init(20);
+        if (ret != 0) {
+            printf("something was wrong, the libdma couldn't be initialized\n");
+            //exit(20);
+        }
         int count = 0;
         while (1) {
             p1 = dma_alloc(asize);
