@@ -3,3 +3,4 @@ libdma.a
 app
 .vscode/*
 .idea/*
+report.pdf
