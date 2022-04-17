@@ -10,6 +10,26 @@ void test_word_to_binary();
 void testFirstFit();
 struct timeval timevalSubtract(struct timeval *s, struct timeval *e);
 void testFree();
+
+void testUseAllocated() {
+    char *str1 = NULL;
+    char *str2 = NULL;
+    int ret;
+
+    ret = dma_init(11);
+    if (ret != 0) {
+        printf("something was wrong.");
+        //exit(20);
+    }
+
+    str1 = dma_alloc(50*sizeof(char));
+    str1 = "Example string set lol\0";
+
+    str2 = dma_alloc(50*sizeof(char));
+    str2 = "Another example string set lol\0";
+    printf("Str1: %s,\nStr2: %s\n", str1, str2);
+}
+
 void testExtFrag()
 {
     void *p1 = NULL;
@@ -91,6 +111,8 @@ int main(int argc, char **argv)
     // test_word_to_binary();
     // test_bit_man();
     printf("App started\n");
+    testUseAllocated();
+    exit(0);
 
     /*testExtFrag();
     printf("\n");
