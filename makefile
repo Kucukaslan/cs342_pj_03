@@ -9,7 +9,7 @@ app: app.c
 clean:
 	rm -fr *~ libdma.a dma.o app.o app
 tar:
-	tar czf ../21901779.tar.gz dma.c makefile readme.txt dma.h report.pdf --ignore-failed-read
+	tar czf ../21901779.tar.gz dma.c app.c makefile readme.txt dma.h report.pdf --ignore-failed-read
 
 run: all
 	./app

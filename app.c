@@ -2,76 +2,209 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/mman.h>
+#include <sys/time.h>
 #include <unistd.h>
 
 void test_bit_man();
 void test_word_to_binary();
+void testFirstFit();
+struct timeval timevalSubtract(struct timeval *s, struct timeval *e);
+void testFree();
+
+void testUseAllocated() {
+    char *str1 = NULL;
+    char *str2 = NULL;
+    int ret;
+
+    ret = dma_init(11);
+    if (ret != 0) {
+        printf("something was wrong.");
+        //exit(20);
+    }
+
+    str1 = dma_alloc(50*sizeof(char));
+    str1 = "Example string set lol\0";
+
+    str2 = dma_alloc(50*sizeof(char));
+    str2 = "Another example string set lol\0";
+    printf("Str1: %s,\nStr2: %s\n", str1, str2);
+}
+
+void testExtFrag()
+{
+    void *p1 = NULL;
+    int ret;
+
+    ret = dma_init(11);
+    if (ret != 0) {
+        printf("something was wrong\n");
+        //exit(20);
+    }
+    void *allocs[28] = {NULL};
+    //allocate 10 times
+    for (int i = 0; i < 28; ++i) {
+        allocs[i] = dma_alloc(64);
+        p1 = allocs[i];
+    }
+    printf("\n");
+
+    dma_print_bitmap();
+    for (int i = 0; i < 28; i += 2) {
+        dma_free(allocs[i]);
+    }
+    dma_print_bitmap();
+    p1 = dma_alloc(128);
+    if (p1 == NULL) {
+        printf("p1 NULL\n");
+    } else {
+        printf("p1 allocs\n");
+    }
+    printf("\n");
+    dma_print_bitmap();
+}
+void testIntFrag()
+{
+    void *p1 = NULL;
+    int ret;
+    const int size = (1 << 11) - (1 << 5) - 256;
+    ret = dma_init(11);
+    if (ret != 0) {
+        printf("something was wrong\n");
+        //exit(20);
+    }
+
+    //allocate 10 times
+    int rem = size;
+    int realRem = size;
+    printf("%6s, %6s, %6s, %6s\n", "alloc", "frag", "rem", "real");
+    //printf("%s, %s, %s, %s, %s\n", "alloc", "frag", "rem", "real", "usec");
+    int i = 0;
+    struct timeval rt[3];
+
+    while (1) {
+        gettimeofday(&rt[0], NULL);
+        p1 = dma_alloc(1);
+        gettimeofday(&rt[1], NULL);
+        rt[2] = timevalSubtract(&rt[1], &rt[0]);
+        i++;
+        if (p1 == NULL) {
+            break;
+        }
+        rem -= 1;
+        realRem -= 16;
+        printf("%6d, %6d, %6d, %6d\n", i, dma_give_intfrag(), rem, realRem);
+        //printf("%d, %d, %d, %d, %ld\n", i, dma_give_intfrag(), rem, realRem, rt[2].tv_sec * 1000000 + rt[2].tv_usec);
+    }
+    printf("\n");
+    dma_print_bitmap();
+    p1 = dma_alloc(2);
+    if (p1 == NULL) {
+        printf("p1 NULL\n");
+    } else {
+        printf("p1 allocs\n");
+    }
+    printf("\n");
+    dma_print_bitmap();
+}
 int main(int argc, char **argv)
 {
     // test_word_to_binary();
     // test_bit_man();
     printf("App started\n");
+    testUseAllocated();
+    exit(0);
 
-
+    /*testExtFrag();
+    printf("\n");
+    testIntFrag();
+    printf("\n");
+    testFirstFit();
+    printf("\n");
+     */
+    testFree();
+    exit(0);
+}
+void testFree()
+{
     void *p1 = NULL;
-    void *p2 = NULL;
-    void *p3 = NULL;
-    void *p4 = NULL;
     int ret;
+    void *allocs[64496];
+    printf("%s, %s\n", "freeSize", "usec");
+    for (int asize = 16; asize <= 1024; asize *= 2) {
+        ret = dma_init(20);
+        if (ret != 0) {
+            printf("something was wrong, the libdma couldn't be initialized\n");
+            //exit(20);
+        }
+        int count = 0;
+        while (1) {
+            p1 = dma_alloc(asize);
+            if (p1 == NULL) {
+                break;
+            }
+            allocs[count] = p1;
+            count++;
+        }
+        //printf("%d\n", count);
+        //printf("\n");
 
-    ret = dma_init(16);
+        //dma_print_bitmap();
+        //printf("%s, %s, %s, %s, %s\n", "alloc", "frag", "rem", "real", "usec");
+        struct timeval rt[3];
+        gettimeofday(&rt[0], NULL);
+        for (int j = 0; j < count; j++) {
+            dma_free(allocs[j]);
+        }
+        gettimeofday(&rt[1], NULL);
+        rt[2] = timevalSubtract(&rt[1], &rt[0]);
+        printf("%d, %ld\n", asize, rt[2].tv_sec * 1000000 + rt[2].tv_usec);
+    }
+}
+struct timeval timevalSubtract(struct timeval *s, struct timeval *e)
+{
+    if (s->tv_usec < e->tv_usec) {
+        long nsec = (e->tv_usec - s->tv_usec) / 1000000 + 1;
+        e->tv_usec -= 1000000 * nsec;
+        e->tv_sec += nsec;
+    }
+    if (s->tv_usec - e->tv_usec > 1000000) {
+        long nsec = (s->tv_usec - e->tv_usec) / 1000000;
+        e->tv_usec += 1000000 * nsec;
+        e->tv_sec -= nsec;
+    }
+    struct timeval result;
+    result.tv_sec = s->tv_sec - e->tv_sec;
+    result.tv_usec = s->tv_usec - e->tv_usec;
+    return result;
+}
+void testFirstFit()
+{
+    int ret;
+    int size = (1 << 11) - (1 << 5) - 256;
+    ret = dma_init(24);
     if (ret != 0) {
         printf("something was wrong\n");
         //exit(20);
     }
-    // printf("before calling dma_print_bitmap\n");
-    dma_print_bitmap();
-
-    p1 = dma_alloc(100); // allocate space for 100 bytes: 14 WORDS
-    dma_print_bitmap();
-    printf("\n\np1: %p, p2: %p, p3: %p, p4: %p, int_frag: %d\n\n", p1, p2, p3, p4, dma_give_intfrag());
-    dma_print_page(0);
-    dma_print_blocks();
-
-    p2 = dma_alloc(1024); // 128 WORDS
-    printf("\n\np1: %p, p2: %p, p3: %p, p4: %p, int_frag: %d\n\n", p1, p2, p3, p4, dma_give_intfrag());
-    // dma_print_bitmap();
-
-    p3 = dma_alloc(64); // 8 WORDS
-    printf("\n\np1: %p, p2: %p, p3: %p, p4: %p, int_frag: %d\n\n", p1, p2, p3, p4, dma_give_intfrag());
-    // dma_print_bitmap();
-
-    p4 = dma_alloc(220); // 28 WORDS
-    dma_print_bitmap();
-    printf("\n\np1: %p, p2: %p, p3: %p, p4: %p, int_frag: %d\n\n", p1, p2, p3, p4, dma_give_intfrag());
-    dma_print_page(0);
-    dma_print_blocks();
-
-    dma_free(p1);
-    dma_free(p3);
-    dma_print_bitmap();
-    printf("\n\np1: %p, p2: %p, p3: %p, p4: %p, int_frag: %d\n\n", p1, p2, p3, p4, dma_give_intfrag());
-    dma_print_page(0);
-    dma_print_blocks();
-    
-    p1 = dma_alloc(17); // 2 WORDS
-    p3 = dma_alloc(800); // 80 WORDS
-    printf("\n\nnew p1: %p, p2: %p, p3: %p, p4: %p, int_frag: %d\n\n", p1, p2, p3, p4, dma_give_intfrag());
-    dma_print_bitmap();
-    printf("\n\np1: %p, p2: %p, p3: %p, p4: %p, int_frag: %d\n\n", p1, p2, p3, p4, dma_give_intfrag());
-    dma_print_page(0);
-    dma_print_blocks();
-
-    dma_free(p3);
-    p3 = dma_alloc(2048);
-    dma_print_bitmap();
-    printf("\n\np1: %p, p2: %p, p3: %p, p4: %p, int_frag: %d\n\n", p1, p2, p3, p4, dma_give_intfrag());
-    dma_print_page(0);
-    dma_print_blocks();
-    dma_free(p1);
-    dma_free(p2);
-    dma_free(p3);
-    dma_free(p4);
+    size = 16;
+    void *p1;
+    struct timeval rt[5][3];
+    //printf("%10s %10s\n", "size", "usec");
+    printf("%s, %s\n", "size", "usec");
+    for (int i = 0; i < 5; ++i) {
+        ret = dma_init(20);
+        gettimeofday(&rt[i][0], NULL);
+        while (1) {
+            p1 = dma_alloc(size);
+            if (p1 == NULL) {
+                break;
+            }
+        }
+        gettimeofday(&rt[i][1], NULL);
+        rt[i][2] = timevalSubtract(&rt[i][1], &rt[i][0]);
+        printf("%d, %ld\n", size, rt[i][2].tv_sec * 1000000 + rt[i][2].tv_usec);
+        size *= 8;
+    }
 }
 
 void test_bit_man()
